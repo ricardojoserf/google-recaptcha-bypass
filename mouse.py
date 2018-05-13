@@ -1,16 +1,26 @@
-import pyautogui, webbrowser, os, sys, time, math, random
+import os, sys, time, argparse, pyautogui
 from random import randint
 import pyscreenshot as ImageGrab
-from PIL import ImageChops
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
-url = 'http://192.168.61.143:5000/login'
 min_diff = 3
 min_offset = 200
+w,h = pyautogui.size()
+
+	
+def finish():
+	sys.exit()
+
+
+def get_args():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-u', '--url', required=True, action='store', help='Option')
+  my_args = parser.parse_args()
+  return my_args
+
 
 def move(obj_x,obj_y,t,mov_val,delay):
-
 	time.sleep(delay)
 	init_t = t
 	init_mov_val = mov_val
@@ -47,7 +57,7 @@ def move(obj_x,obj_y,t,mov_val,delay):
 			mov_val = init_mov_val
 			break
 
-
+'''
 def listColors():
 	image = ImageGrab.grab()
 	w,h = pyautogui.size()
@@ -75,13 +85,43 @@ def listColors():
 	print "len(types)", len(types)
 
 
-def searchCaptcha():
+def checkMoved(coordx, coordy):
+	my_position = pyautogui.position()
+	diffx = abs ( my_position[0] - coordx)
+	diffy = abs ( my_position[1] - coordy)
+	# print diffx,diffy
+	if abs(diffx) > 100 or abs(diffy) > 100:
+		move(coordx, coordy, 0.1, 30, 0)
+		# print diffx,diffy
+		pyautogui.click()
+	else:
+		return True	
+'''
+
+
+def checkGreen():
+	image = ImageGrab.grab()
+	verde = (0, 158, 85)
+	w,h = pyautogui.size()
+	count = 0
+
+	for y in range(0,h-1):
+	    for x in range(0,w-1):
+	        color = image.getpixel((x, y))
+	        if color == verde:
+	        	count +=1
+	
+	return (count>50)
+
+
+def colorLocate():
 	image = ImageGrab.grab()
 	w,h = pyautogui.size()
 	offset = 100
 	y = offset
 	coordinates_x = []
 	coordinates_y = []	
+
 	while y < (h-offset):
 		y += 1
 		line_colors = []
@@ -102,13 +142,13 @@ def searchCaptcha():
 						coordinates_x.append(x)
 					if y not in coordinates_y:
 						coordinates_y.append(y)
-	coordx = sorted(coordinates_x)[0]
-	coordy = sorted(coordinates_y)[0]
-	return coordx,coordy
+	
+	coordx = int ( sum(coordinates_x)/len(coordinates_x)  )
+	coordy = int ( sum(coordinates_y)/len(coordinates_y)  )
+	return (coordx, coordy)
 
 
 def openchrome(url):
-	# Abrir pagina
 	options = webdriver.ChromeOptions()
 	options.add_argument("--start-maximized")
 	options.add_argument("--incognito")
@@ -119,44 +159,110 @@ def openchrome(url):
 	return driver
 
 
-def check(coordx, coordy):
-	my_position = pyautogui.position()
-	diffx = abs ( my_position[0] - coordx)
-	diffy = abs ( my_position[1] - coordy)
-	# print diffx,diffy
-	if abs(diffx) > 100 or abs(diffy) > 100:
-		move(coordx, coordy, 0.1, 30, 0)
-		# print diffx,diffy
-		pyautogui.click()
-	else:
-		return True
+def randomMovement(n):
+	for i in range(0,n):
+		move(randint(min_offset,(w-min_offset)), randint(min_offset,(h-min_offset)), 0.05, 50, 0)
+
+
+def imageLocate():
+	loc = pyautogui.locateOnScreen('Scripts\mouse\captura.png')
+	margin = 10
+
+	if loc is None:
+		print "Captcha not detected"
+		finish()
+
+	top_left = loc[0]
+	top_right = (loc[0]+loc[2])
+	top_top = loc[1]
+	top_bottom = (loc[1]+loc[3])
+	
+	x = randint(top_left + margin, top_right - margin)
+	y = randint(top_top + margin, top_bottom - margin)
+	coords = (x,y)
+
+	return coords
+
+
+def prepareElements(n):
+	texts=[]
+	positions = []
+
+	for it in range(1,(int(n)+1)):
+		text = raw_input("Text for element "+str(it)+": ")
+		texts.append(text)
+		
+	for it in range(1,(int(n)+1)):
+		t = raw_input("Put cursor over element "+str(it)+" and press Enter")
+		positions.append(pyautogui.position())
+	
+	return texts, positions
+
 
 def main():
-			w,h = pyautogui.size()
-			print "Resolucion: ",w,"x",h			
-			#listColors()
-			
-			done = False
+	args = get_args()
+	url = args.url
 
-			while done is False:
-				# movimiento aleatorio
-				move(randint(min_offset,(w-min_offset)), randint(min_offset,(h-min_offset)), 0.05, 50, 0)
-				
-				# Cargar browser
-				# driver = openchrome(url)
-				time.sleep(2)
-				
-				# moverse al captcha
-				coordx, coordy = searchCaptcha()
-				move(coordx,coordy,0.1,30,0)
-				pyautogui.click()
+	### CLICKABLE ELEMENTS ###
+	driver = openchrome(url)
+	number_inputs_pre = raw_input("Number of elements before captcha: ")
+	pre_texts, pre_positions = prepareElements(number_inputs_pre)
+	number_inputs_post = raw_input("Number of elements after captcha: ")
+	post_texts, post_positions = prepareElements(number_inputs_post)
+	driver.close()
+	### CLICKABLE ELEMENTS ###
+	
+	done = False
 
-				done = check(coordx, coordy)
-				
-				time.sleep(5)
-				
-				# driver.close()
+	while done is False:
+		print "Initializing..."
 
+		### RANDOM ###
+		randomMovement(1)
+		### RANDOM ###
+		
+		driver = openchrome(url)
+		time.sleep(2)
+
+		### PRE ELEMENTS ###
+		for ind in range(0,len(pre_positions)):
+			pos =  pre_positions[ind]
+			txt = pre_texts[ind]
+			move(pos[0],pos[1],0.1,30,0)
+			pyautogui.click()
+			pyautogui.typewrite(txt)
+			time.sleep(1)
+		### PRE ELEMENTS ###
+
+		### CAPTCHA ###
+		coords = colorLocate()
+		#coords = imageLocate()
+		while ( (abs(pyautogui.position()[0] - coords[0])>100) or (abs(pyautogui.position()[1] - coords[1])>100) ):
+			move(coords[0],coords[1],0.1,30,0)
+		pyautogui.click()
+		time.sleep(2)
+		done = checkGreen()
+		### CAPTCHA ###
+
+		### RANDOM ###
+		randomMovement(1)
+		### RANDOM ###
+
+		### POST ELEMENTS ###
+		for ind in range(0,len(post_positions)):
+			pos =  post_positions[ind]
+			txt = post_texts[ind]
+			pyautogui.moveTo(pos[0],pos[1])
+			pyautogui.click()
+			pyautogui.typewrite(txt)
+			time.sleep(1)
+		### POST ELEMENTS ###
+
+		time.sleep(5)
+		if driver.current_url != url:
+			print "EXITO"
+			finish()
+		driver.close()
 
 
 if __name__ == "__main__":
