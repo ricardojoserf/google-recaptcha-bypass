@@ -163,7 +163,7 @@ def randomMovement(n):
 	for i in range(0,n):
 		move(randint(min_offset,(w-min_offset)), randint(min_offset,(h-min_offset)), 0.05, 50, 0)
 
-
+'''
 def imageLocate():
 	loc = pyautogui.locateOnScreen('Scripts\mouse\captura.png')
 	margin = 10
@@ -182,7 +182,7 @@ def imageLocate():
 	coords = (x,y)
 
 	return coords
-
+'''
 
 def prepareElements(n):
 	texts=[]
